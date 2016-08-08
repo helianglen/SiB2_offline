@@ -7,8 +7,6 @@
 !!!      SUBROUTINE driver( iu, icho2, ichmet, isnow, nymd )
 !!!      SUBROUTINE driver(icho2, isnow, nymd)
 subroutine driver(isnow)
-
-
 !c-----------------------------------------------------------------------
 !c     subroutines called : radc2
 !c-----------------------------------------------------------------------
