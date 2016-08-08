@@ -1314,7 +1314,7 @@ subroutine green_ampt(dep)
       ! Depois de preencher a 1ra camada o restante de infiltração 
       ! preenche sucessivamente as subcamadas definidas.
       depwww = dsfc_cst ! a profundidade de la primeira camada eh constante
-       ! Limitante para o preenchimento com a infiltração***
+      ! Limitante para o preenchimento com a infiltração***
       !igual a 0.02m e comeca a 2da camada.
       !dzmultilayer = (zdepth(2)+zdepth(3))/(nlayers+0.0) ! Sustituir aqui pelo fator de 
       ! discretizacao (nlayers)
