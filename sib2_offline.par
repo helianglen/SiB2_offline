@@ -1,0 +1,59 @@
+&SIB_RUN
+date1 = 2001010102
+date2 = 2014123124
+infile2 = '/home/roilan/Dropbox/Dissertacao/TORRE.txt'
+dtt = 3600.0
+itrunk = 20
+ilw = 5
+/
+
+
+&SIB_INVARS
+ivtype = 2
+! The following variable is NOT used
+istype = 3
+isnow = 0
+ipbl = 1
+idirr = 0
+decay = 0.85
+zlong = -45.0
+zlat = -20.5
+poros = 0.458     ! soilpara(1,k)
+phsat = -0.2      ! soilpara(2,k)
+satco = 3.5E-06   ! soilpara(3,k)
+bee = 7.797       ! soilpara(4,k)
+slope = 0.08      ! soilpara(5,k)
+!speyield = 0.20   ! soilpara(6,k)
+slpp = 1.0
+tc = 298.0
+tg = 298.0
+td = 297.0
+capac = 0.0, 0.0
+snoww = 0.0, 0.0
+www = 0.75, 0.85, 0.98
+surdep = 0.0
+gwdep = 0.0
+app = 0.0001
+bpp = 20.0
+cpp = 0.9999
+/
+
+
+&SIB_INITIALV
+tc_ini = 298.0
+tg_ini = 298.0
+td_ini = 297.0
+www_ini = 0.70, 0.85, 0.98
+/
+
+
+&SIB_CAEROD
+zwind = 11.0
+zmet = 11.0
+/
+
+
+&SIB_VDERIV
+gmudmu = 1.0
+/
+

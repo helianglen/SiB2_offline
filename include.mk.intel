@@ -1,0 +1,55 @@
+#
+# include.mk.intel
+#
+
+# Fortran compiler
+F77 = /opt/intel/bin/ifort
+
+# Flags for AMD processors
+ifeq ($(CPU),amd)
+   ifeq ($(BUILD), debug)
+      FFLAGS = -132 -assume byterecl -module $(MODDIR) -O2 \
+	       -traceback \
+      	       -no-vec \
+	       -CB \
+	       -CA \
+	       -zero \
+	       -r8
+   endif
+
+   ifeq ($(BUILD),fast)
+      FFLAGS = -132 -assume byterecl -module $(MODDIR) -O3 \
+      	       -msse3 \
+	       -ipo \
+	       -prec-div \
+	       -fp-model strict \
+	       -zero \
+	       -r8
+   endif
+endif
+
+# Flags for INTEL processors
+ifeq ($(CPU),intel)
+   ifeq ($(BUILD),debug)
+#      FFLAGS = -132 -module $(MODDIR) -O2 -r8
+#      FFLAGS = -132 -module $(MODDIR) -g -O0 -r8
+      FFLAGS = -132 -module $(MODDIR) -O0 -g -check all -traceback -ftrapuv -r8 
+#      	       -traceback
+#      	       -no-vec \
+#	       -CB \
+#	       -CA \
+#	       -zero
+#	       -r8
+   endif
+
+   ifeq ($(BUILD),fast)
+      FFLAGS = -132 -assume byterecl -module $(MODDIR) -O3 \
+      	       -xHost \
+	       -ipo \
+	       -prec-div \
+               -fp-model precise \
+	       -fp-model except \
+	       -r8
+#	       -zero 
+   endif
+endif
