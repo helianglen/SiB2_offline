@@ -92,15 +92,6 @@ subroutine driver(isnow)
    radn(2,1) = (1.0 - difrat) * (1.0 - vnrat) * swdown
    radn(2,2) = difrat * (1.0 - vnrat) * swdown
    radn(3,2) = zlwd
-!!!         RETURN
-!c      END IF
-!!!1000  CONTINUE
-!!!      WRITE(icho2, 900) iu, nymd, iout
-!!!      WRITE(icho2, 900) nymd, iout
-!!! 900   FORMAT(5x,'eof encountered for unit= ',i2,' eof date= ',i8,1x,i2)
-!!!900   FORMAT(5x,'eof encountered. EOF date= ',i8,1x,i2)
-!!!      STOP 'in driver'
-
    
 end subroutine driver
 
