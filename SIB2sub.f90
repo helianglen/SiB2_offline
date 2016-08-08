@@ -10,7 +10,6 @@ subroutine driver(isnow)
 !c-----------------------------------------------------------------------
 !c     subroutines called : radc2
 !c-----------------------------------------------------------------------
-
    use stepv, only : snoww, tc, tg
    use atmos, only : radn, cloud, em, ppc, ppl, sunang, swdown, tm, um
    use steps, only : iter
