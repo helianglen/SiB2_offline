@@ -3742,8 +3742,7 @@ subroutine updat2
 !   www(3) = www(3) - (extrak3 / facl3) * facl3
    
 !....FIN DA MODIFICACAO ROILAN
-!   if(iter .lt. 10) print*,'before LE',(dzwww(i),i=1,10)
-!   if(iter .lt. 10) print*,'before LE',(extfrac_new(i),i=1,10)
+
   ! Determinacao da transpiracao desde cada uma das subcamadas
   ! >
   ! Constantes:  real :: depthreal,extfrac(nlayers)
