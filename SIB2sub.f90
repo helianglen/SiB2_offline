@@ -399,12 +399,7 @@ subroutine outer(iout1, nymd)
       vwc02 = vwc02 / wcount02
       
  !********************************************************************   
-    
- 
- 
- 
- 
- 
+
 ! NEW WAY FOR SIB2DIAG.TXT WRITE  ~RHV
       if (iter == 1) then                                           ! write labels
          write(iout1,'(16(1x,a12))') &
