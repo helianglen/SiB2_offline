@@ -93,6 +93,8 @@ subroutine driver(isnow)
    radn(2,2) = difrat * (1.0 - vnrat) * swdown
    radn(3,2) = zlwd
    
+
+
 end subroutine driver
 
 
