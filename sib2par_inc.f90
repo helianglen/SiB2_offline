@@ -36,7 +36,8 @@ module morphology2
    implicit none
 
    real :: z2_v(nv), z1_v(nv), zc_v(nv), vcover_v(nv), chil_v(nv), &
-            leafw_v(nv), leafl_v(nv), sodep_v(nv), rootd_v(nv),rootex_v(nv)
+            leafw_v(nv), leafl_v(nv), sodep_v(nv), rootd_v(nv),rootex_v(nv), &
+            stem_v(nv)
    real :: laimax_v(nv), lais_v(nv), ndvi98_v(nv), ndvi5_v(nv), &
             fcl_v(nv)
 end module morphology2

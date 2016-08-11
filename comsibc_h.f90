@@ -72,6 +72,7 @@ module vstate
    real :: z2
    real :: z1
    real :: vcover
+   real :: stem
    real :: chil
    real :: tran(2,2)
    real :: ref(2,2)
