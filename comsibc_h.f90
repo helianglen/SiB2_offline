@@ -163,6 +163,7 @@ module atmos
    real :: ppl
    real :: radn(3,2)
    real :: sunang
+   real :: coszen
    real :: swdown
    real :: rnetm
    real :: cloud

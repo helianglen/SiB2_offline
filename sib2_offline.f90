@@ -23,7 +23,7 @@ program sib2_offline
    use site, only : zlong, zlat
    use stepv   ! tc, tg, td, capac, snoww, www
    use suroff, only : surdep
-   use atmos, only : swdown, rnetm, em, tm, um
+   use atmos, only : swdown, rnetm, em, tm, um,coszen
    use readin, only : tprec, zlwd !, mustar
    use irrgrid, only : idirr
    use temp, only : gwdep
@@ -60,7 +60,9 @@ program sib2_offline
    real :: effcon_c, gradm_c, binter_c, respcp_c, atheta_c, btheta_c, rootd_c
    real :: phc_c, trop_c, slti_c, hlti_c, hhti_c, vmax_c,sodep_c
    real :: beta,froot_norm,cumextfrac,depwww
-    integer :: kzat_pre
+   integer :: kzat_pre
+   real, external ::  orb_coszen
+
    namelist /sib_run/ date1, date2, infile2, dtt, itrunk, ilw
    namelist /sib_invars/ ivtype, istype, isnow, ipbl, idirr, decay, &
       zlong, zlat, poros, phsat, satco, bee, slope, slpp, tc, tg, td, &
@@ -259,6 +261,10 @@ program sib2_offline
          time = real(hour) - 0.5
          coshr = cos(-pi + time / 24.0 * twopi)   ! Melhorar isto
 
+            coszen = 0.0
+            coszen = orb_coszen(realday,zlong, zlat)
+
+
          ! The following three variables must be read from data file
 !         zlt = 3.54
         
@@ -285,7 +291,8 @@ program sib2_offline
          call driver(isnow)
          call balan(1)
          call inter2(idirr)
-         call rada2
+!         call rada2
+         call rada2_update
          call begtem
          call endtem(ipbl)
          call updat2

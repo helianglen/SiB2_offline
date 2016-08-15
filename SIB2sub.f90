@@ -67,8 +67,8 @@ subroutine driver(isnow)
 !!!         call radc2_2
    call radc2_2(zlat, sindec, cosdec, coshr, sunang)
 
-!   cloud = (1160.0 * sunang - swdown) / (963.0 * sunang)
-   cloud = 2.33 - 3.33*(  swdown / (1160.0 * sunang) )
+   cloud = (1160.0 * sunang - swdown) / (963.0 * sunang)
+!   cloud = 2.33 - 3.33*(  swdown / (1160.0 * sunang) )
    cloud = max(cloud, 0.0)
    cloud = min(cloud, 1.0)
    cloud = max(0.38, cloud)
@@ -578,11 +578,11 @@ subroutine vegpar(ivtype)
    use vstate, only : &
       tran, ref, atheta, btheta, binter, chil, effcon, &
       gradm, hhti, hlti, phc, respcp, rootd, shti, slti, &
-      trda, trdm, trop, vcover, z1, z2, rootex
+      trda, trdm, trop, vcover, z1, z2, rootex,stem
    use vderiv, only : vmax0
 
    use morphology2, only : z1_v, z2_v, vcover_v, chil_v, rootd_v, sodep_v, &
-      rootex_v
+      rootex_v, stem_v
    use optical, only : &
       tranlv_v, tranln_v, trandv_v, trandn_v, &
       reflv_v, refln_v, refdv_v, refdn_v, sorefv_v, sorefn_v
@@ -602,7 +602,7 @@ subroutine vegpar(ivtype)
       z1 = z1_v(ivtype)
       vcover = vcover_v(ivtype)
       chil = chil_v(ivtype)
-
+      stem = stem_v(ivtype)
       rootd = rootd_v(ivtype)
       phc = phc_v(ivtype)
 
@@ -1734,7 +1734,6 @@ subroutine rada2
 !c     subroutines  called  : snow1
 !c     --------------------   longrn
 !c
-!c
 !c++++++++++++++++++++++++++++++output++++++++++++++++++++++++++++++++
 !c
 !c       salb(2,2)      surface albedos
@@ -1748,23 +1747,41 @@ subroutine rada2
 !c       closs          tir emission from the canopy (w m-2)
 !c       gloss          tir emission from the ground (w m-2)
 !c
-!rhv-NOTA-  albedo(canopy(1)/ground(2), vis(1)/infraverm(2), direct(1)/diffuse(2))
+!r NOTE:- albedo(canopy  / ground     ,
+!                visivel / infraverm  ,
+!                direct  / diffuse    )
 !c++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-   use atmos, only : sunang, radn
-   use const, only : stefan, tf
-   use donor, only : zlwup
-   use grads, only : tgs
-   use hydrol, only : areas, canex, satcap
-   use radabs, only : albedo, radfac, radt, thermk
-   use site, only : salb
-   use soilij, only : soref
-   use stepv, only : tc, tg, snoww
-   use vdyijt, only : green, zlt
-   use vstate, only : chil, vcover, ref, tran
+!c
+!+ Parameters & vars in modules:
+   ! Woldn't be modificated:>
+   use atmos,  only : sunang    ! cosine of solar zenith angle [-]
+   use const,  only : stefan, & ! Stefan-Boltzman constant []
+                      tf        ! freezing temperature     [-]
+   use grads,  only : tgs       ! surface soil temperature in fraction cover by snow [K]
+   use hydrol, only : areas,  & ! fraction of ground covered by snow [-]
+                      canex,  & ! fraction of canopy not covered by snow [-]
+                      satcap    ! interception capacities [m] (canopy/ground)
+   use soilij, only : soref     ! soil reflectance [-] ([visible/nearIR])
+   use stepv,  only : tc,     & ! canopy temperature [K]
+                      tg,     & ! ground temperature [K]
+                      snoww     ! snow interception store [m] (canopy/ground)
+   use vdyijt, only : green,  & ! green leaf fraction [-]
+                      zlt       ! Leaf Area Index [m2m-2]
+   use vstate, only : chil,   & ! leaf angle distribution factor [-]
+                      vcover, & ! fractional vegetation cover [-]
+                      ref,    & ! leaf reflectance (iband,life and dead)
+                      tran      ! leaf transmittance (iw=iband, il=life and dead)
+   ! Will be modificated:>
+   use radabs, only : albedo, & ! component reflectances
+                      radfac, & ! radiation absorption factors
+                      radt,   & ! absorption of radiation by surface
+                      thermk    ! canopy gap fraction for tir radiation
+   use site,   only : salb      ! surface albedos
+   use donor,  only : zlwup     ! emitted longwave radiation
+   use atmos,  only : radn      ! downward radiation components
 
    implicit none
-
+   ! Local variables
    integer :: irad, iveg, iwave
    real :: aa, acss, bb, be, betao, bot, ce, chiv, closs, de, den
    real :: ek, epsi, extkb, f, f1, fac1, fac2, facs, fe, fmelt
@@ -1775,18 +1792,6 @@ subroutine rada2
 
    f = sunang
 
-!c----------------------------------------------------------------------
-!c
-!c
-!c     modification for effect of snow on upper story albedo
-!c         snow reflectance   = 0.80, 0.40 . multiply by 0.6 if melting
-!c         snow transmittance = 0.20, 0.54
-!c
-!c
-!c-----------------------------------------------------------------------
-
-
-
    call snow1
 
    facs = (tg - tf) * 0.04
@@ -1796,8 +1801,27 @@ subroutine rada2
 
 !   do 1000 iwave = 1, 2
    do iwave = 1, 2
+
+!c----------------------------------------------------------------------
+!c
+!c
+!c     modification for effect of snow on upper story albedo
+!c         snow reflectance   = 0.80, 0.40 . multiply by 0.6 if melting
+!c         snow transmittance = 0.20, 0.54
+!c
+!c
+!c-----------------------------------------------------------------------
   
       scov = min(0.5, snoww(1) / satcap(1))
+    !---------------------------------------
+    ! Some error in snoww(1) calculation.  !
+    ! so, scov == min(0.5,1.01) == 0.5     !
+    ! when precipitation > 0. That results !
+    ! in unrealistic modifications of      !
+    ! ref(2,2) & tran(2,2)                 !
+    !  temporal SOLUTION scov == 0.0       !
+    ! NOTE: code revisation needed.        !
+                 scov = 0.0
       reff1 = (1.0 - scov) * ref(iwave,1) + scov * (1.2 - iwave * 0.4) * fmelt
       reff2 = (1.0 - scov) * ref(iwave,2) + scov * (1.2 - iwave * 0.4) * fmelt
       tran1 = tran(iwave,1) * (1.0 - scov) + scov &
@@ -2044,6 +2068,665 @@ subroutine rada2
 end subroutine rada2
 
 
+
+!--------------NEW SUBROUTINE-------------------------------------------|
+    subroutine rada2_update
+!
+!  Subroutine that calculates fragmented albedos (direct & diffuse )
+!  in wavelength regions, split at 0.7 um.
+!r   NOTE: The following code is based in CLM-4.5 (in file ALBEDO.F90)
+!
+! (1) soil albedos: as in BATS formulations, which are the function of
+!     soil color and moisture in the surface soil layer
+! (3) canopy albedo: two-stream approximation model
+!
+!------------------------------------------------------------------------
+!r NOTE:- albedo(canopy  / ground     ,
+!                visivel / infraverm  ,
+!                direct  / diffuse    )
+!c+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+!c
+!+ Parameters & vars in modules:
+   !-- Woldn't be modificated:>
+   use atmos,  only : sunang,  & ! cosine of solar zenith angle [-]
+                      coszen ! & ! cosine of solar zenith angle [-]
+                                 ! ...CLM formulation
+!                       ppc,ppl  ! precipitation components
+   use const,  only : stefan, & ! Stefan-Boltzman constant []
+                      tf        ! freezing temperature     [-]
+   use grads,  only : tgs       ! surface soil temperature in fraction cover by snow [K]
+   use hydrol, only : areas,  & ! fraction of ground covered by snow [-]
+!                     canex,  & ! fraction of canopy not covered by snow [-]
+                      satcap    ! interception capacities [m] (canopy/ground)
+   use soilij, only : soref     ! soil reflectance [-] ([visible/nearIR])
+   use stepv,  only : tc,     & ! canopy temperature [K]
+                      tg,     & ! ground temperature [K]
+                      snoww!, & ! snow interception store [m] (canopy/ground)
+                      !www      ! ground wetness
+   use vdyijt, only : green,  & ! green leaf fraction [-]
+                      zlt       ! Leaf Area Index [m2m-2]
+   use vstate, only : chil,   & ! leaf angle distribution factor [-]
+                      vcover, & ! fractional vegetation cover [-]
+                      stem,   & !
+                      ref,    & ! leaf reflectance (iband,life and dead)
+                      tran      ! leaf transmittance (iw=iband, il=life and dead)
+!   use soils, only  : poros    ! soil porosity
+   !++ Will be modificated:>
+   use radabs, only : albedo, & ! component reflectances
+                      radfac, & ! radiation absorption factors
+                      radt,   & ! absorption of radiation by surface
+                      thermk    ! canopy gap fraction for tir radiation
+   use site,   only : salb      ! surface albedos
+   use donor,  only : zlwup     ! emitted longwave radiation
+   use atmos,  only : radn      ! downward radiation components
+
+   implicit none
+   ! Output variables
+   real :: alb(2,2),          & ! averaged albedo [-]
+           albg(2,2),         & ! albedo, ground
+           albv(2,2),         & ! albedo, vegetation [-]
+           ssun(2,2),         & ! sunlit canopy absorption for solar radiation
+           ssha(2,2),         & ! shaded canopy absorption for solar radiation,...
+                                ! ...normalized by the incident flux
+!           thermk,            & ! canopy gap fraction for tir radiation
+           extkb,             & ! (k, g(mu)/mu) direct solar extinction coefficient
+           extkd                ! diffuse and scattered diffuse PAR extinction coefficient
+
+   ! Local variables
+   real :: snal0,             & ! alb for visible,incident on new snow (zen ang<60) [-]
+           snal1,             & ! alb for NIR, incident on new snow (zen angle<60) [-]
+           beta0,             & ! upscattering parameter for direct beam [-]
+           tranc(2,2),        & ! canopy transmittances for solar radiation
+           czen,              & ! cosine of solar zenith angle > 0 [-]
+!           coszen,            & ! cosine of solar zenith angle > 0 [-]
+           albsno(2,2),       & ! snow albedo [-]
+!           f,                 & ! cosine of solar zenith angle > 0 [-]**
+           facs,              & ! snow melt coeficient
+           fmelt,             & ! snow melt coeficient
+           refc_s(2,2),       & ! leaf reflectance corrected by snow cover
+           tranc_s(2,2),      & ! leaf transmitance corrected by snow cover
+           scat(2),           & ! single scattering albedo for vir/nir beam [-]
+           lai,               & ! Leaf Area Index **
+           sai,               & ! Stem Area Index **
+           scov,              & ! snow cover fraction
+           se,                & ! extintion coeficient of radiation by length wave
+           tranc1(2),         & ! extintion coeficient of radiation by length wave **
+           tranc2(2),         & ! difuse canopy transmitance **
+           tranc3(2),         & ! direct canopy transmitance **
+           tc4,               & ! canopy temperature(**4)
+           tg4,               & ! ground temperature(**4)
+           fac1,              & !
+           fac2,              & !
+           closs,             & ! canopy long-wave radiation loss
+           gloss!             & ! ground long-wave radiation loss
+
+    integer :: l_d,           & ! index running in live dead leaf
+               iwave,         & ! index running in visible/IR
+               irad,          & ! index by radiation
+               iveg!           & ! index by canopy/ground
+
+!-- end declaration for variables
+
+! ----------------------------------------------------------------------
+! 1. Initial set
+! ----------------------------------------------------------------------
+! division of solar flux for wavelength less or greater than 0.7 micron
+!      fsol1 = 0.5      ! shortwave
+!      fsol2 = 0.5      ! longwave
+
+! short and long wave albedo for new snow
+      snal0 = 0.85     ! shortwave
+      snal1 = 0.65     ! long wave
+
+! set initial leaf scattering reflectance.
+! Note: scat may use different value for different vegetation latter
+      beta0 = 0.5
+      scat(1) = 0.15
+      scat(2) = 0.85
+
+! ----------------------------------------------------------------------
+! set default soil and vegetation albedos and solar absorption
+      alb (:,:)  = 0. ! averaged
+      albg(:,:)  = 0. ! ground
+      albv(:,:)  = 0. ! vegetation
+      ssun(:,:)  = 0. ! sunlit
+      ssha(:,:)  = 0. ! shaded
+      thermk = 1.e-3  ! gap fraction
+      extkb = 1.e-6   ! extinction for direct
+      extkd = 0.718   ! extinction for difusse
+      tranc(:,:) = 0. ! final canopy transm
+
+      lai = zlt       ! ** code compatibility
+      sai = stem      ! ** code compatibility
+                      ! Sellers96 define as parameter by vegetation type
+!      lsai=lai+sai
+!      if(coszen<=0.)  !only do albedo when coszen > 0
+
+      czen=max(coszen,0.001)
+      albsno(:,:)=0.         !set initial snow albedo
+
+! ----------------------------------------------------------------------
+! 2. albedo correction for snow cover.
+!    NOTE: as in SiB2
+!c     modification for effect of snow on upper story albedo
+!c         snow reflectance   = 0.80, 0.40 . multiply by 0.6 if melting
+!c         snow transmittance = 0.20, 0.54
+! ----------------------------------------------------------------------
+
+!    print*, coszen,sunang,coszen-sunang
+        coszen = sunang
+   call snow1
+
+   facs = (tg - tf) * 0.04
+   facs = max(0.0, facs)
+   facs = min(0.4, facs)
+   fmelt = 1.0 - facs
+
+   refc_s  = ref  ! optical parameters atualization by snow cover fraction       !rhv
+   tranc_s = tran ! optical parameters atualization by snow cover fraction       !rhv
+
+!-------------------------------------------------------------------------!rhv
+! 2.1 Correction in reflectance and transmitances by snow cover in canopy
+!     surface.
+!
+   scov = min(0.5, (snoww(1) / satcap(1)) )
+
+    !-------------IMPORTANT-----------------
+    ! Some error in snoww(1) calculation.  !
+    ! so, scov == min(0.5,1.01) == 0.5     !
+    ! when precipitation > 0. That results !
+    ! in unrealistic modifications of      !
+    ! ref(2,2) & tran(2,2)                 !
+    ! temporal SOLUTION scov == 0.0        !
+    !    NOTE: code revisation needed.     !
+                 scov = 0.0                !
+    !--------------------------------------!
+
+   do l_d= 1,2; do iwave = 1,2
+
+       refc_s(iwave,l_d) = (1.0 - scov) * ref(iwave,l_d) +              &
+                            scov * (1.2 - iwave * 0.4) * fmelt
+
+       tranc_s(iwave,l_d) = (1.0 - scov) * tran(iwave,l_d) +            &
+                             scov * (1.0-(1.2-iwave*0.4)*fmelt)*        &
+                             tran(iwave,l_d) *                          &
+                             (1.0 - 0.1 * (l_d - 1) ) ! this term ...
+                             ! ...if l_d == 1 -> 1 ; l_d == 2 -> 0.9
+
+       albg(iwave,l_d) = (1.0 - scov) * soref(iwave) +                  &
+                            scov * albsno(iwave,l_d)
+
+   enddo;enddo
+
+!
+!------------------------------------------------------------------------.
+! 3. Correction in ground albedo by wetness in soil surface
+!
+!    alb_s_inc = max(0.11-0.40*www(1)*poros, 0.)
+!    albg(1,1) = min(soil_s_v_alb + alb_s_inc, soil_d_v_alb)
+!    albg(2,1) = min(soil_s_n_alb + alb_s_inc, soil_d_n_alb)
+     albg(:,1) = soref(:)
+     albg(:,2) = albg(:,1)
+!-----------------------------------------------------------------------.
+! 4. CALL Two Stream Model
+! if(coszen<=0.)
+   call twostream ( chil,   & ! IN
+                    refc_s, & ! IN
+                    tranc_s,& ! IN
+                    green,  & ! IN
+                    lai,    & ! IN
+                    sai,    & ! IN
+                    coszen, & ! IN
+                    albg,   & ! IN
+                    albv,   & ! OUT
+                    tranc,  & ! OUT
+                    thermk, & ! OUT
+                    extkb,  & ! OUT
+                    extkd,  & ! OUT
+                    ssun,   & ! OUT
+                    ssha,   & ! OUT
+                    se)       ! OUT
+
+   !**compatibility code
+   albedo(1,1,1) = albv(1,1)
+   albedo(1,1,2) = albv(1,2)
+   albedo(1,2,1) = albv(2,1)
+   albedo(1,2,2) = albv(2,2)
+   !**compatibility code
+   albedo(2,1,1) = albg(1,1)
+   albedo(2,1,2) = albg(1,2)
+   albedo(2,2,1) = albg(2,1)
+   albedo(2,2,2) = albg(2,2)
+   !**compatibility code
+   tranc1(:) = se
+   tranc2(:) = tranc(:,2)
+   tranc3(:) = tranc(:,1)
+
+!  END call twostream
+!------------------------------------------------------------------------.
+! 5.1 Calculation of terms which multiply incoming short wave fluxes
+!     to give absorption of radiation by canopy and ground
+!      NOTE: this part is in SiB2 'subroutine rada2', her adapted for terms
+!           from CLM two stream calculation.
+!
+!      radfac   (f(il,imu,iv)) : equation (19,20) , SE-86
+!---
+    do iwave=1,2 ! BEGIN_IWAVE_LOOP
+       ! fraction of 'direct' radiation
+       ! absorved by 'canopy'
+       radfac(1,iwave,1) = (                          &
+                           (1.0 - albedo(1,iwave,1) ) &  !+ canopy direct absorved
+         - tranc1(iwave) * (1.0 - albedo(2,iwave,1) ) &  !- direct through canopy gaps
+                                                         !  and absorved by ground as direct
+         - tranc3(iwave) * (1.0 - albedo(2,iwave,2) ) &  !- canopy direct transmited
+                                                         !  and absorved by ground as difusse
+                          ) * vcover                     !* vegetated area
+       ! fraction of 'difusse' radiation
+       ! absorved by 'canopy'
+       radfac(1,iwave,2) = (                           &
+                            (1.0 - albedo(1,iwave,2) ) & !+ canopy difusse absorved
+         - tranc2(iwave) *  (1.0 - albedo(2,iwave,2) ) & !- canopy difusse transmitted
+                                                         !  and absorved by ground
+                           ) * vcover                    !* vegetated area
+       ! fraction of 'direct' radiation
+       ! absorved by 'ground'
+       radfac(2,iwave,1) = (1.0 - albedo(2,iwave,1) )  & !+ ground direct absorved
+                           * (1.0 - vcover)            & !* bare soil area
+         + ( tranc1(iwave) * (1.0 - albedo(2,iwave,1)) & !+ direct through canopy gaps
+                                                         !  and absorved by ground as direct
+            + tranc3(iwave)* (1.0 - albedo(2,iwave,2)))& !+ canopy direct transmited
+                                                         !  and absorved by ground as difusse
+                           * vcover                      !* vegetated area
+
+       ! fraction of 'difuse' radiation
+       ! absorved by 'ground'
+       radfac(2,iwave,2) = (1.0 - albedo(2,iwave,2))   & !+ ground difusse absorved
+                           * (1.0 - vcover)            & !* bare soil area
+        + tranc2(iwave) * (1.0 - albedo(2,iwave,2))    & !+ canopy difusse transmitted
+                                                         !  and absorved by ground
+                           * vcover                      !* vegetated area
+!---OLD CODE-------------------------------------------------------------.
+!     radfac(2,iwave,1) = (1.0 - vcover) * (1.0 - albedo(2,iwave,1)) +    &
+!                         vcover * (tranc1(iwave) * (1.0 - albedo(2,iwave,1))          &
+!         + tranc3(iwave) * (1.0 - albedo(2,iwave,2)))
+!
+!      radfac(2,iwave,2) = (1.0 - vcover) * (1.0 - albedo(2,iwave,2)) &
+!         + vcover * tranc2(iwave) * (1.0 - albedo(2,iwave,2))
+!
+!      radfac(1,iwave,1) = vcover * ((1.0 - albedo(1,iwave,1)) &
+!         - tranc1(iwave) * (1.0 - albedo(2,iwave,1)) &
+!         - tranc3(iwave) * (1.0 - albedo(2,iwave,2)))
+!
+!      radfac(1,iwave,2) = vcover * ((1.0 - albedo(1,iwave,2)) &
+!         - tranc2(iwave) * (1.0 - albedo(2,iwave,2)))
+!------------------------------------------------------------------------.
+
+!c----------------------------------------------------------------------
+!c 5.2 Calculation of total surface albedos ( salb ) with weighting
+!c      for cover fractions.
+!c----------------------------------------------------------------------
+!
+      do irad = 1, 2
+         salb(iwave,irad) = (1.0 - vcover) * albedo(2,iwave,irad) &
+            + vcover * albedo(1,iwave,irad)
+      end do
+
+    enddo ! END_IWAVE_LOOP
+
+!c----------------------------------------------------------------------
+!c 6.1 Calculation of long-wave flux terms from canopy and ground
+!c
+!c      closs ( fc - rnc )     : equation (21),  SE-86
+!c      gloss ( fg - rng )     : equation (22),  SE-86
+!c----------------------------------------------------------------------
+
+   tgs = min(tf,tg) * areas + tg * (1.0 - areas)
+   tc4 = tc * tc * tc * tc
+   tg4 = tgs * tgs * tgs * tgs
+
+!   zkat = 1.0 / zmew * zlt / vcover
+!   zkat = min(50.0, zkat)
+!   zkat = max(1.e-5, zkat)
+!   thermk = exp(-zkat)
+
+   fac1 = vcover * (1.0 - thermk)
+   fac2 = 1.0
+   closs = 2.0 * fac1 * stefan * tc4
+   closs = closs - fac2 * fac1 * stefan * tg4
+   gloss = fac2 * stefan * tg4
+   gloss = gloss - fac1 * fac2 * stefan * tc4
+   zlwup = fac1 * stefan * tc4 + (1.0 - fac1) * fac2 * stefan * tg4
+
+!c----------------------------------------------------------------------
+!c
+!c 6.2 Calculation of long-wave incoming radiation
+!c
+!c----------------------------------------------------------------------
+
+   call longrn(tranc1, tranc2, tranc3)
+
+!c-----------------------------------------------------------------------
+!c
+!c 7.1 Calculation of absorption of radiation by surface
+!c
+!c-----------------------------------------------------------------------
+
+   radt(1) = 0.0
+   radt(2) = 0.0
+
+   do iveg  = 1, 2
+      do iwave = 1, 2
+         do irad  = 1, 2
+            !radt <- radiação total absorvida pelo dossel e o solo
+            !radfac(iveg,iwave,irad) <- fração de radiação absorvida para cada elemento (dossel/solo)
+            !                                                                           (visivel/infra)
+            !                                                                           (directa/difussa)
+            !radn <- radiação global observada particionada na (visível/infraverm)
+            !                                                  (direta/difussa)
+            radt(iveg) = radt(iveg) + radfac(iveg,iwave,irad) * radn(iwave,irad)
+         end do
+      end do
+   end do
+    ! Adicionando a radiação térmica para cada um dos termos de radiação
+   radt(1) = radt(1) + radn(3,2) * vcover * (1.0 - thermk) - closs
+   radt(2) = radt(2) + radn(3,2) * (1.0 - vcover * (1.0 - thermk)) - gloss
+
+!c---------------------------------------------------------------------
+  end subroutine rada2_update
+
+
+
+  subroutine twostream (                                               &
+             chil, ref,  tran, green, lai, sai, coszen, albg,          & ! INPUTs
+             albv, tranc, thermk, extkb, extkd, ssun, ssha , s2        & ! OUTPUTs
+             )
+
+!-----------------------------------------------------------------------
+!
+!     calculation of canopy albedos via two stream approximation (direct
+!     and diffuse ) and partition of incident solar
+!
+!        Original author: Yongjiu Dai, June 11, 2001
+!
+!-----------------------------------------------------------------------
+
+  use precision
+  implicit none
+
+! parameters
+  real ::                  &
+          ! static parameters associated with vegetation type
+            chil,          &! leaf angle distribution factor
+            ref(2,2),      &! leaf reflectance (iw=iband, il=life and dead)
+            tran(2,2),     &! leaf transmittance (iw=iband, il=life and dead)
+
+          ! time-space varying vegetation parameters
+            green,         &! green leaf fraction
+            lai,           &! leaf area index of exposed canopy (snow-free)
+            sai             ! stem area index
+
+! environmental variables
+  real ::   coszen,        &! consine of solar zenith angle
+            albg(2,2)       ! albedos of ground
+
+! output
+  real ::   albv(2,2),     &! albedo, vegetation [-]
+            tranc(2,2),    &! canopy transmittances for solar radiation
+            thermk,        &! canopy gap fraction for tir radiation
+            extkb,         &! (k, g(mu)/mu) direct solar extinction coefficient
+            extkd,         &! diffuse and scattered diffuse PAR extinction coefficient
+            ssun(2,2),     &! sunlit canopy absorption for solar radiation
+            ssha(2,2)       ! shaded canopy absorption for solar radiation,
+                            ! normalized by the incident flux
+
+!-------------------------- local -----------------------------------
+  real ::  phi1,           &! (phi-1)
+           phi2,           &! (phi-2)
+           scat,           &! (omega)
+           proj,           &! (g(mu))
+           zmu,            &! (int(mu/g(mu))
+           zmu2,           &! (zmu * zmu)
+           as,             &! (a-s(mu))
+           upscat,         &! (omega-beta)
+           betao,          &! (beta-0)
+           psi,            &! (h)
+
+           be,             &! (b)
+           ce,             &! (c)
+           de,             &! (d)
+           fe,             &! (f)
+
+           power1,         &! (h*lai)
+           power2,         &! (k*lai)
+           power3,         &!
+
+           sigma,          &!
+           s1,             &!
+           s2,             &!
+           p1,             &!
+           p2,             &!
+           p3,             &!
+           p4,             &!
+           f1,             &!
+           f2,             &!
+           h1,             &!
+           h4,             &!
+           m1,             &!
+           m2,             &!
+           m3,             &!
+           n1,             &!
+           n2,             &!
+           n3,             &!
+
+           hh1,            &! (h1/sigma)
+           hh2,            &! (h2)
+           hh3,            &! (h3)
+           hh4,            &! (h4/sigma)
+           hh5,            &! (h5)
+           hh6,            &! (h6)
+           hh7,            &! (h7)
+           hh8,            &! (h8)
+           hh9,            &! (h9)
+           hh10,           &! (h10)
+
+           eup(2,2),       &! (integral of i_up*exp(-kx) )
+           edown(2,2)       ! (integral of i_down*exp(-kx) )
+
+  integer iw                !
+
+
+!-----------------------------------------------------------------------
+! projected area of phytoelements in direction of mu and
+! average inverse diffuse optical depth per unit leaf area
+
+      phi1 = 0.5 - 0.633 * chil - 0.33 * chil * chil
+      phi2 = 0.877 * ( 1. - 2. * phi1 )
+
+      proj = phi1 + phi2 * coszen
+      extkb = (phi1 + phi2 * coszen) / coszen
+
+      extkd = 0.719
+
+      if (abs(phi1).gt.1.e-6 .and. abs(phi2).gt.1.e-6) then
+         zmu = 1. / phi2 * ( 1. - phi1 / phi2 * log ( ( phi1 + phi2 ) / phi1 ) )
+      else if (abs(phi1).le.1.e-6) then
+         zmu = 1./0.877
+      else if (abs(phi2).le.1.e-6) then
+         zmu = 1./(2.*phi1)
+      endif
+      zmu2 = zmu * zmu
+
+      power3 = (lai+sai) / zmu
+      power3 = min( 50., power3 )
+      power3 = max( 1.e-5, power3 )
+      thermk = exp(-power3)
+
+      do iw = 1, 2    ! WAVE_BAND_LOOP
+
+!-----------------------------------------------------------------------
+!     calculate average scattering coefficient, leaf projection and
+!     other coefficients for two-stream model.
+!-----------------------------------------------------------------------
+
+      scat = green * ( tran(iw,1) + ref(iw,1) ) + &
+             ( 1. - green ) * ( tran(iw,2) + ref(iw,2) )
+
+      as = scat / 2. * proj / ( proj + coszen * phi2 )
+      as = as * ( 1. - coszen * phi1 / ( proj + coszen * phi2 ) * &
+               log ( ( proj + coszen * phi2 + coszen * phi1 ) / ( coszen * phi1 ) ) )
+
+      upscat = green * tran(iw,1) + ( 1. - green ) * tran(iw,2)
+      upscat = 0.5 * ( scat + ( scat - 2. * upscat ) * &
+               (( 1. + chil ) / 2. ) ** 2 )
+      betao = ( 1. + zmu * extkb ) / ( scat * zmu * extkb ) * as
+
+!-----------------------------------------------------------------------
+!     intermediate variables identified in appendix of SE-85.
+!-----------------------------------------------------------------------
+
+      be = 1. - scat + upscat
+      ce = upscat
+      de = scat * zmu * extkb * betao
+      fe = scat * zmu * extkb * ( 1. - betao )
+
+      psi = sqrt(be**2 - ce**2)/zmu
+      power1 = min( psi*lai, 50. )
+      power2 = min( extkb*lai, 50. )
+      s1 = exp( - power1 )
+      s2 = exp ( - power2 )
+
+!-----------------------------------------------------------------------
+!     calculation of direct albedos and canopy transmittances.
+!     albv (iw,1)     ( i-up )
+!     tranc(iw,irad)  ( i-down )
+!-----------------------------------------------------------------------
+
+      p1 = be + zmu * psi
+      p2 = be - zmu * psi
+      p3 = be + zmu * extkb
+      p4 = be - zmu * extkb
+
+      f1 = 1. - albg(iw,2)*p1/ce
+      f2 = 1. - albg(iw,2)*p2/ce
+
+      h1 = - ( de * p4 + ce * fe )
+      h4 = - ( fe * p3 + ce * de )
+
+      sigma = ( zmu * extkb ) ** 2 + ( ce**2 - be**2 )
+
+      if (abs(sigma) .gt. 1.e-10) then     !<======
+
+         hh1 = h1 / sigma
+         hh4 = h4 / sigma
+
+         m1 = f1 * s1
+         m2 = f2 / s1
+         m3 = ( albg(iw,1) - ( hh1 - albg(iw,2) * hh4 ) ) * s2
+
+         n1 = p1 / ce
+         n2 = p2 / ce
+         n3 = - hh4
+
+         hh2 = (m3*n2 - m2*n3) / (m1*n2 - m2*n1)
+         hh3 = (m3*n1 - m1*n3) / (m2*n1 - m1*n2)
+
+         hh5 = hh2 * p1 / ce
+         hh6 = hh3 * p2 / ce
+
+         albv(iw,1) = hh1 + hh2 + hh3
+
+         tranc(iw,1) = hh4 * s2 + hh5 * s1 + hh6 / s1
+
+         eup(iw,1) = hh1 * (1. - s2*s2) / (2.*extkb) &
+                   + hh2 * (1. - s1*s2) / (extkb + psi) &
+                   + hh3 * (1. - s2/s1) / (extkb - psi)
+
+         edown(iw,1) = hh4 * (1. - s2*s2) / (2.*extkb) &
+                     + hh5 * (1. - s1*s2) / (extkb + psi) &
+                     + hh6 * (1. - s2/s1) / (extkb - psi)
+
+      else                               !<======
+
+         m1 = f1 * s1
+         m2 = f2 / s1
+         m3 = h1 / zmu2 * ( lai + 1. / (2.*extkb) ) * s2 &
+            + albg(iw,2) / ce * ( - h1 / (2.*extkb) / zmu2 * &
+              ( p3*lai + p4 / (2.*extkb) ) - de ) * s2 &
+            + albg(iw,1) * s2
+
+         n1 = p1 / ce
+         n2 = p2 / ce
+         n3 = 1./ce * ( h1*p4 / (4.*extkb*extkb) / zmu2 + de)
+
+         hh2 = (m3*n2 - m2*n3) / (m1*n2 - m2*n1)
+         hh3 = (m3*n1 - m1*n3) / (m2*n1 - m1*n2)
+
+         hh5 = hh2 * p1 / ce
+         hh6 = hh3 * p2 / ce
+
+         albv(iw,1) =  - h1 / (2.*extkb*zmu2) + hh2 + hh3
+
+         tranc(iw,1) = 1./ce * ( -h1 / (2.*extkb*zmu2) * &
+                                ( p3*lai + p4 / (2.*extkb) ) - de ) * s2 &
+                     + hh5 * s1 + hh6 / s1
+
+         eup(iw,1) = (hh2 - h1/(2.*extkb*zmu2)) * (1. - s2*s2) / (2.*extkb) &
+                   + hh3 * (lai - 0.) &
+                   + h1/(2.*extkb*zmu2) * ( lai*s2*s2 - (1. - s2*s2)/(2.*extkb) )
+
+         edown(iw,1) = (hh5 - (h1*p4/(4.*extkb*extkb*zmu) + de)/ce) * &
+                             (1. - s2*s2) / (2.*extkb) &
+                     + hh6 * (lai - 0.) &
+                     + h1*p3/(ce*4.*extkb*extkb*zmu2) * &
+                                         ( lai*s2*s2 - (1. - s2*s2)/(2.*extkb) )
+
+      endif                              !<======
+
+      ssun(iw,1) = (1.-scat) * ( 1.-s2 + 1. / zmu * (eup(iw,1) + edown(iw,1)) )
+      ssha(iw,1) = scat * (1.-s2) &
+               + ( albg(iw,2)*tranc(iw,1) + albg(iw,1)*s2 - tranc(iw,1) ) - albv(iw,1) &
+               - ( 1. - scat ) / zmu * ( eup(iw,1) + edown(iw,1) )
+
+!-----------------------------------------------------------------------
+!     calculation of diffuse albedos and canopy transmittances
+!     albv (iw,2) ( i-up )
+!     tranc(iw,2) ( i-down )
+!-----------------------------------------------------------------------
+
+      m1 = f1 * s1
+      m2 = f2 / s1
+      m3 = 0.
+
+      n1 = p1 / ce
+      n2 = p2 / ce
+      n3 = 1.
+
+      hh7 = -m2 / (m1*n2 - m2*n1)
+      hh8 = -m1 / (m2*n1 - m1*n2)
+
+      hh9 = hh7 * p1 / ce
+      hh10 = hh8 * p2 / ce
+
+      albv(iw,2) =  hh7 + hh8
+      tranc(iw,2) = hh9 * s1 + hh10 / s1
+
+      if (abs(sigma) .gt. 1.e-10) then
+         eup(iw,2)   = hh7 * (1. - s1*s2) / (extkb + psi) &
+                     + hh8 * (1. - s2/s1) / (extkb - psi)
+         edown(iw,2) = hh9 * (1. - s1*s2) / (extkb + psi) &
+                     + hh10 * (1. - s2/s1) / (extkb - psi)
+      else
+         eup(iw,2)   = hh7 * (1. - s1*s2) / ( extkb + psi) + hh8 * (lai - 0.)
+         edown(iw,2) = hh9 * (1. - s1*s2) / ( extkb + psi) + hh10 * (lai - 0.)
+      endif
+
+      ssun(iw,2) = (1.-scat) / zmu * (eup(iw,2) + edown(iw,2))
+      ssha(iw,2) = tranc(iw,2) * ( albg(iw,2) -1. ) - ( albv(iw,2) - 1. ) &
+                 - ( 1. - scat ) / zmu * ( eup(iw,2) + edown(iw,2) )
+
+      enddo           ! WAVE_BAND_LOOP
+
+  end subroutine twostream
 
 !c=======================================================================
 
@@ -5028,7 +5711,7 @@ end subroutine run2
    implicit none
 
    ! Dummy arguments
-   integer, intent(in) :: icho2, iopt
+   integer :: icho2, iopt
 
     ! Essas variáveis já foram inicializadas*
 !!!	dtt    = 3600.
@@ -5042,7 +5725,7 @@ end subroutine run2
 !!!	www_ini(1) = 0.70
 !!!	www_ini(2) = 0.85
 !!!	www_ini(3) = 0.98
-        print*,icho2
+      IF (icho2 == 1) print*,icho2  ! TO DELETE
       IF (iopt /= 1) THEN
 
 !      WRITE(icho2,800)
@@ -5111,6 +5794,62 @@ end subroutine cntrol
 !!!	END
 
 
+ function orb_coszen(calday,dlon,dlat)
+
+!-------------------------------------------------------------------------------
+! FUNCTION to return the cosine of the solar zenith angle. Assumes 365.0 days/year.
+! Compute earth/orbit parameters using formula suggested by
+! Duane Thresher. Use formulas from Berger, Andre 1978: Long-Term Variations of Daily
+! Insolation and Quaternary Climatic Changes. J. of the Atmo. Sci. 35:2362-2367.
+!
+! Original version:  Erik Kluzek, Oct/1997, Brian Kauffman, Jan/98
+! CCSM2.0 standard
+! yongjiu dai (07/23/2002)
+!-------------------------------------------------------------------------------
+
+ use precision
+ implicit none
+
+ real(r8), intent(in) :: calday        !Julian cal day (1.xx to 365.xx)
+ real(r8), intent(in) :: dlat          !Centered latitude (radians)
+ real(r8), intent(in) :: dlon          !Centered longitude (radians)
+ real(r8) :: orb_coszen
+
+! --- Local variables ---
+ real(r8) declin                       !Solar declination (radians)
+ real(r8) eccf                         !Earth-sun distance factor (ie. (1/r)**2)
+ real(r8) lambm                        !Lambda m, mean long of perihelion (rad)
+ real(r8) lmm                          !Intermediate argument involving lambm
+ real(r8) lamb                         !Lambda, the earths long of perihelion
+ real(r8) invrho                       !Inverse normalized sun/earth distance
+ real(r8) sinl                         !Sine of lmm
+ real(r8) pi                           !3.14159265358979323846...
+ real(r8), parameter :: &
+           dayspy=365.0,              &!days per year
+           ve=80.5,                   &!Calday of vernal equinox assumes Jan 1 = calday 1
+           eccen=1.672393084E-2,      &!Eccentricity
+           obliqr=0.409214646,        &!Earths obliquity in radians
+           lambm0=-3.2625366E-2,      &!Mean long of perihelion at the vernal equinox (radians)
+           mvelpp=4.92251015           !moving vernal equinox longitude of
+                                       !perihelion plus pi (radians)
+!-------------------------------------------------------------------------------
+   pi = 4.*atan(1.)
+   lambm = lambm0 + (calday - ve)*2.*pi/dayspy
+   lmm = lambm  - mvelpp
+
+   sinl = sin(lmm)
+   lamb = lambm + eccen*(2.*sinl + eccen*(1.25*sin(2.*lmm) &
+         + eccen*((13.0/12.0)*sin(3.*lmm) - 0.25*sinl)))
+   invrho = (1. + eccen*cos(lamb - mvelpp)) / (1. - eccen*eccen)
+
+   declin = asin(sin(obliqr)*sin(lamb))
+   eccf = invrho*invrho
+
+   orb_coszen = sin(dlat)*sin(declin) &
+              - cos(dlat)*cos(declin)*cos(calday*2.0*pi+dlon)
+
+ end function orb_coszen
+
 
 !!!      SUBROUTINE radc2_2
 subroutine radc2_2(zlat, sindec, cosdec, coshr, sunang)
@@ -5122,7 +5861,7 @@ subroutine radc2_2(zlat, sindec, cosdec, coshr, sunang)
 !c-----------------------------------------------------------------------
 
 !!!        use constants, only : decmax
-!!!        use atmos, only : sunang
+!   use atmos, only : sunang
 !!!        use const, only : pie
    use constants, only : s2r
 !!!        use govern, only : time, year, day
@@ -6626,7 +7365,7 @@ use precision
 !     dtt
 !     
 !     use multicamada 
-     use steps , only : dtt , iter
+     use steps , only : dtt !, iter
      use atmos, only : swdown
      use multicamada, only : hr_proc 
 implicit none
@@ -6691,7 +7430,7 @@ real :: hr_term(1:nsoil)
 real :: mpot(1:nsoil),srcon(1:nsoil),rootf(1:nsoil)
 !----------------------------------------------------------------------
 
-    if(iter .lt. 10)print*, iter, (vol_liq(i),i=1,nsoil)
+    !if(iter .lt. 10)print*, iter, (vol_liq(i),i=1,nsoil)
     
     hltmi = 1.0/hltm
     dti = 1.0/dtt
@@ -6702,7 +7441,7 @@ real :: mpot(1:nsoil),srcon(1:nsoil),rootf(1:nsoil)
     mpot50 = -1.0
     hrb = 3.22
     
-    print*,"ect não é usado nessa versão",ect
+    ect = ect ! TO DELETE
     
     ! Inicalização de vetores ::
     hk     = 0.0
