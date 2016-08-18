@@ -2306,14 +2306,14 @@ end subroutine rada2
    tranc2(:) = tranc(:,2)
    tranc3(:) = tranc(:,1)
 
-    if(iter .eq.1) &
-    write(556,*)'nymd ', 'albedoCVD ', 'albedoCVF ', 'albedoCID ', 'albedoCIF ', &
-                        'albedoGVD ', 'albedoGVF ', 'albedoGID ', 'albedoGIF ', &
-                        'trancXV ','trancXI ',                                &
-                        'trancFV ','trancFI ',                                &
-                        'trancDV ','trancDI'
-
-    write(556,*)nymd, albedo, tranc1,tranc2,tranc3
+!    if(iter .eq.1) &
+!    write(556,*)'nymd ', 'albedoCVD ', 'albedoCVF ', 'albedoCID ', 'albedoCIF ', &
+!                        'albedoGVD ', 'albedoGVF ', 'albedoGID ', 'albedoGIF ', &
+!                        'trancXV ','trancXI ',                                &
+!                        'trancFV ','trancFI ',                                &
+!                        'trancDV ','trancDI'
+!
+!    write(556,*)nymd, albedo, tranc1,tranc2,tranc3
 
 !  END call twostream
 !------------------------------------------------------------------------.
