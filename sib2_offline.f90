@@ -17,7 +17,7 @@ program sib2_offline
    use caerod, only : ha, g2, g3, corb1, corb2, zwind, zmet
    use vderiv, only : z0d, dd, cc1, cc2, gmudmu
    use initialv   ! tc_ini, tg_ini, td_ini, www_ini
-   use steps, only : itrunk, ilw, dtt, iter
+   use steps, only : itrunk, ilw, dtt, iter, nymd
    use soils, only : poros, phsat, satco, bee, slope, slpp, decay,anik!, speyield
    use preccoff   ! app, bpp, cpp
    use site, only : zlong, zlat
@@ -46,7 +46,7 @@ program sib2_offline
    integer, parameter :: out1 = 20
    integer, parameter :: ichmet = 7
    integer, parameter :: iu = 8
-   integer :: date1, date2, nymd, jul, dayloc, sta_id
+   integer :: date1, date2, jul, dayloc, sta_id
    integer :: i, j, ierr
    integer :: isnow, ipbl   ! Taken off from 'sib2river_inc' module
    real :: varcal_para(9,70,9)   ! Taken off from 'sib2river_inc' module
@@ -61,7 +61,8 @@ program sib2_offline
    real :: phc_c, trop_c, slti_c, hlti_c, hhti_c, vmax_c,sodep_c
    real :: beta,froot_norm,cumextfrac,depwww
    integer :: kzat_pre
-   real, external ::  orb_coszen
+   real, external ::  orb_coszen,calendarday_date
+   real :: juldayhr
 
    namelist /sib_run/ date1, date2, infile2, dtt, itrunk, ilw
    namelist /sib_invars/ ivtype, istype, isnow, ipbl, idirr, decay, &
@@ -93,7 +94,7 @@ program sib2_offline
       sodep_c,rootex,anik,satcap_c,satcap_g,                                  &
       nlayers,beta,dzmultilayer,hr_proc,kzat_pre
       
-      
+
    ! Write input data on screen
    write(*,nml=sib_run)
    write(*,nml=sib_invars)
@@ -144,7 +145,7 @@ program sib2_offline
    sodep_v(ivtype) = (int( (rootd_c + sodep_c)*10 ) + 0.0) /10.0
 !   rootex_v(ivtype) = rootex
    end if
-   
+
 
    !stop
    do j = 1, 9
@@ -165,7 +166,7 @@ program sib2_offline
       end do
    end do
     
-   ! stop
+
    ! Computes the location on the year of the initial date
    year = date1 / 1000000
    month = mod(date1, 1000000) / 10000
@@ -251,7 +252,7 @@ program sib2_offline
             dayloc = 1
             sols = (4141.0 / 24.0) + 0.25 * real(mod(year + 3, 4))
          end if
-	 ! if(dayloc >31 ) dayloc = 1 !Se tirar o comentario perde a correção ao sunang
+!	   if(dayloc >31 ) dayloc = 1 !Se tirar o comentario perde a correção ao sunang
          realday = real(dayloc) + real(hour) / 24.0
          season = (realday - sols) / 365.2
          dec = decmax * cos(twopi * season)
@@ -262,8 +263,9 @@ program sib2_offline
          coshr = cos(-pi + time / 24.0 * twopi)   ! Melhorar isto
 
             coszen = 0.0
-            coszen = orb_coszen(realday,zlong, zlat)
-
+            juldayhr = 0.0
+            juldayhr = calendarday_date(year,month,day,hour)
+            coszen = orb_coszen(juldayhr,zlong, zlat)
 
          ! The following three variables must be read from data file
 !         zlt = 3.54

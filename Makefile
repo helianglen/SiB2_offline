@@ -34,7 +34,7 @@ MODEL_SRC = \
 	sib2data.f90 \
 	SIB2sub.f90 \
 	derive_trans.f \
-	sib2_offline.f90
+	sib2_offline.f90 
 #	sib2_sub.f90 
 
 MODEL_OBJ = $(patsubst %.f90,%.o, $(patsubst %.f,%.o,$(MODEL_SRC)))

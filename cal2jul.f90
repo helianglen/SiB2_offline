@@ -22,10 +22,35 @@ end function cal2jul
 
 
 
+FUNCTION calendarday_date(YEAR,MM,DAY,HOUR)result(day_date)
+
+  implicit none
+  integer, intent(in) :: YEAR,MM,DAY,HOUR
+  real   :: day_date
+  integer :: DOY
+  integer, external :: cal2jul
+
+  DOY = cal2jul(YEAR,MM,DAY) - cal2jul(YEAR,1,1)  +1
+  day_date = float(DOY) + (float(HOUR)*3600.-1.)/86400.
+
+END FUNCTION calendarday_date
+
+
 !program teste
 !   implicit none
 !   integer, external :: cal2jul
+!   real, external :: calendarday_date
+!    integer :: date(3),day_year
+!
+!    date(1) = 2004
+!    date(2) = 11
+!    date(3) = 3600*23
 !
 !   write(*,*) cal2jul(2012, 1, 1)
 !   write(*,*) cal2jul(2013, 1, 1)
+!   day_year = cal2jul(2013, 3, 3) - cal2jul(2013, 1, 1) + 1
+!    write(*,*) day_year, "day_year"
+!   write(*,*) calendarday_date(2013,3,3,2)
+!
 !end program teste
+

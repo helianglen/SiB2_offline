@@ -203,6 +203,7 @@ module steps
    integer :: ilw 
    integer :: niter 
    integer :: iter 
+   integer :: nymd
 !   integer :: ispare   ! NOT USED
    real :: dtt
 end module 

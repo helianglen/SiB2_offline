@@ -71,7 +71,7 @@ subroutine driver(isnow)
 !   cloud = 2.33 - 3.33*(  swdown / (1160.0 * sunang) )
    cloud = max(cloud, 0.0)
    cloud = min(cloud, 1.0)
-   cloud = max(0.38, cloud)
+   cloud = max(0.58, cloud)
    
 !   cloud_old = (1160.0 * sunang - swdown) / (963.0 * sunang)
 !   cloud_old = max(cloud_old, 0.0)
@@ -959,7 +959,7 @@ subroutine inter2(idirr)
    use snow, only : tsnow
    use soils, only : poros, zdepth, satcoz
    use suroff, only : finfil
-   use steps, only : dtt!,iter
+   use steps, only : dtt
    use stepv, only : capac, snoww, www, tc, tg
    use stores, only : csoil
    use vstate, only : chil, vcover
@@ -978,12 +978,8 @@ subroutine inter2(idirr)
    real :: tti, xs, xsc, xss, xw1, zload
 
    real :: pcoefs(2,2)
+    real :: print_snoww1,print_snoww2 !TEMPORAL DELETE
 
-!c      data pcoefs(1,1)/ 20. /, pcoefs(1,2)/ .206e-8 /,
-!c     &     pcoefs(2,1)/ 0.0001 /, pcoefs(2,2)/ 0.9999 /, bp /20. /
-!c!      data pcoefs(1,1)/ 25. /, pcoefs(1,2)/ 1.38879E-11 /,
-!c!     &     pcoefs(2,1)/ 25. /, pcoefs(2,2)/ 1.38879E-11 /, bp /25. /
-!c! tatsch
    data pcoefs(1,1)/ 0.0001 /, pcoefs(1,2)/ 0.9999 /, &
       pcoefs(2,1)/ 0.0001 /, pcoefs(2,2)/ 0.9999 /, bp /20. /
 
@@ -1006,8 +1002,9 @@ subroutine inter2(idirr)
    ap = pcoefs(2,1)
    cp = pcoefs(2,2)
    totalp = ppc + ppl
-   if( snoww(1) > 0. .or. snoww(2) > 0. .or. tm < tf ) &
+   if( snoww(1) > 0. .or. snoww(2) > 0. .or. tm < tf ) then
       ppc = 0.
+   endif
    ppl = totalp - ppc
    if(totalp >= 1.e-8) then
       ap = ppc/totalp * pcoefs(1,1) + ppl/totalp * pcoefs(2,1)
@@ -1043,6 +1040,8 @@ subroutine inter2(idirr)
 !c----------------------------------------------------------------------
 
    p0 = totalp * 0.001
+    print_snoww1 = snoww(1)
+    print_snoww2 = snoww(2)
 
    do iveg = 1, 2
 
@@ -1053,6 +1052,7 @@ subroutine inter2(idirr)
       capac(iveg) = capac(iveg) - xsc
       xss = max(0.0, snoww(iveg) - satcap(iveg)) * realc
       snoww(iveg) = snoww(iveg) - xss
+
       if (iveg == 1) then  !Because freezing, snoww(1)>satcap, put to snoww(2)
          snoww(2) =snoww(2) + xss
          xss = 0.0
@@ -1133,7 +1133,8 @@ subroutine inter2(idirr)
 
       end if
    end do
-
+!    if(snoww(1) .ne. print_snoww1) print*,'CANOPY',snoww(1), print_snoww1
+!    if(snoww(2) .ne. print_snoww2) print*,'SOLO',snoww(2), print_snoww2
 !c----------------------------------------------------------------------
 !c
 !c     instantaneous overland flow contribution ( roff )
@@ -1516,6 +1517,8 @@ subroutine adjust(ts, spechc, capacp, snowwp, iveg)
    finfil = finfil + xs
    capac(iveg) = capac(iveg) - xs
    ts = tsd
+
+!   if(freeze .gt. 0.0) print*,'freeze', freeze,diff
 end subroutine adjust
 
 
@@ -1821,7 +1824,7 @@ subroutine rada2
     ! ref(2,2) & tran(2,2)                 !
     !  temporal SOLUTION scov == 0.0       !
     ! NOTE: code revisation needed.        !
-                 scov = 0.0
+!                 scov = 0.0
       reff1 = (1.0 - scov) * ref(iwave,1) + scov * (1.2 - iwave * 0.4) * fmelt
       reff2 = (1.0 - scov) * ref(iwave,2) + scov * (1.2 - iwave * 0.4) * fmelt
       tran1 = tran(iwave,1) * (1.0 - scov) + scov &
@@ -2088,10 +2091,10 @@ end subroutine rada2
 !c
 !+ Parameters & vars in modules:
    !-- Woldn't be modificated:>
-   use atmos,  only : sunang,  & ! cosine of solar zenith angle [-]
-                      coszen ! & ! cosine of solar zenith angle [-]
-                                 ! ...CLM formulation
-!                       ppc,ppl  ! precipitation components
+   use atmos,  only : coszen!,& ! cosine of solar zenith angle [-]
+                      !sunang & ! cosine of solar zenith angle [-]
+                                ! ...CLM formulation
+!                       ppc,ppl ! precipitation components
    use const,  only : stefan, & ! Stefan-Boltzman constant []
                       tf        ! freezing temperature     [-]
    use grads,  only : tgs       ! surface soil temperature in fraction cover by snow [K]
@@ -2119,6 +2122,7 @@ end subroutine rada2
    use site,   only : salb      ! surface albedos
    use donor,  only : zlwup     ! emitted longwave radiation
    use atmos,  only : radn      ! downward radiation components
+   use steps,  only : nymd,iter
 
    implicit none
    ! Output variables
@@ -2202,7 +2206,7 @@ end subroutine rada2
 !      lsai=lai+sai
 !      if(coszen<=0.)  !only do albedo when coszen > 0
 
-      czen=max(coszen,0.001)
+      czen=max(coszen,0.00001)
       albsno(:,:)=0.         !set initial snow albedo
 
 ! ----------------------------------------------------------------------
@@ -2214,7 +2218,7 @@ end subroutine rada2
 ! ----------------------------------------------------------------------
 
 !    print*, coszen,sunang,coszen-sunang
-        coszen = sunang
+!        coszen = sunang
    call snow1
 
    facs = (tg - tf) * 0.04
@@ -2225,13 +2229,13 @@ end subroutine rada2
    refc_s  = ref  ! optical parameters atualization by snow cover fraction       !rhv
    tranc_s = tran ! optical parameters atualization by snow cover fraction       !rhv
 
-!-------------------------------------------------------------------------!rhv
+!-------------------------------------------------------------------------       !rhv
 ! 2.1 Correction in reflectance and transmitances by snow cover in canopy
 !     surface.
 !
    scov = min(0.5, (snoww(1) / satcap(1)) )
 
-    !-------------IMPORTANT-----------------
+    !-------------IMPORTANT----------------!
     ! Some error in snoww(1) calculation.  !
     ! so, scov == min(0.5,1.01) == 0.5     !
     ! when precipitation > 0. That results !
@@ -2276,7 +2280,7 @@ end subroutine rada2
                     green,  & ! IN
                     lai,    & ! IN
                     sai,    & ! IN
-                    coszen, & ! IN
+                    czen, & ! IN
                     albg,   & ! IN
                     albv,   & ! OUT
                     tranc,  & ! OUT
@@ -2301,6 +2305,15 @@ end subroutine rada2
    tranc1(:) = se
    tranc2(:) = tranc(:,2)
    tranc3(:) = tranc(:,1)
+
+    if(iter .eq.1) &
+    write(556,*)'nymd ', 'albedoCVD ', 'albedoCVF ', 'albedoCID ', 'albedoCIF ', &
+                        'albedoGVD ', 'albedoGVF ', 'albedoGID ', 'albedoGIF ', &
+                        'trancXV ','trancXI ',                                &
+                        'trancFV ','trancFI ',                                &
+                        'trancDV ','trancDI'
+
+    write(556,*)nymd, albedo, tranc1,tranc2,tranc3
 
 !  END call twostream
 !------------------------------------------------------------------------.
@@ -4531,9 +4544,10 @@ subroutine snow2
    use hydrol, only : areas
    use snow, only : tsnow
    use soils, only : poros, zdepth
-   use steps, only : dtt
+   use steps, only : dtt, nymd,iter
    use stepv, only : snoww, www, capac, tc, tg
    use stores, only : ccx, cg, csoil
+!    use atmos, only : ppl , ppc ! TEMPORAL DELETE
 
    implicit none
 
@@ -4543,6 +4557,16 @@ subroutine snow2
    real :: dtsg2, dtsg3, exheat, exmelt, fluxx, fluxef, freeze
    real :: heat, realc, realg, safe, snowhc, tbulk
    real :: tn, ts, zmelt, zmelt2
+   real :: init_snoww(2)
+
+   freeze = 0.0
+   init_snoww = snoww
+
+    if(iter .eq. 1) then
+        write(555, '(a10,2(a12),8(a17,1x))')                              &
+        'where.in ','nymd ','iveg ', 'snowwF ','snowwI ','ts ','dts ', &
+        'flux ','tsnow ','freeze ','zmelt '
+    endif
 
    do iveg = 1, 2
 
@@ -4558,6 +4582,10 @@ subroutine snow2
       tsnow = min (tf - 0.01, ts)
       snowhc = min(0.05, snoww(iveg)) * cw * realg
       zmelt = 0.0
+
+        write(555, '(a10,2(i12),8(f17.7,1x))') &
+             'init',nymd,iveg, snoww(iveg),init_snoww(iveg),&
+             ts,dts,fluxx,tsnow,freeze,zmelt
 
       if (snoww(iveg) <= 0.0) then
 
@@ -4575,6 +4603,14 @@ subroutine snow2
             capac(iveg) = 0.0
             dts = dts + snoww(iveg) * snomel / cctt
          end if
+
+    !!! TEMPORAL AVALIATION
+        if(snoww(iveg) .ne. init_snoww(iveg)) then
+             write(555, '(a10,2(i12),8(f17.7,1x))') &
+             'ts.ĺt.tf',nymd,iveg, snoww(iveg),init_snoww(iveg),&
+             ts,dts,fluxx,tsnow,freeze,zmelt
+        endif
+    !!! TEMPORAL AVALIATION
 
       else
 
@@ -4602,6 +4638,15 @@ subroutine snow2
 
                safe = max(1.0 - areas * realg, 1.e-8)
                dts = tf - 0.01 - ts + avheat / (cctt * safe) * dtt
+
+    !!! TEMPORAL AVALIATION
+        if(snoww(iveg) .ne. init_snoww(iveg)) then
+             write(555, '(a10,2(i12),8(f17.9,1x))') &
+             'ts.ĺt.tf',nymd,iveg, snoww(iveg),init_snoww(iveg),&
+             ts,dts,fluxx,tsnow,freeze,zmelt
+        endif
+    !!! TEMPORAL AVALIATION
+
 
             else
 
@@ -4636,6 +4681,15 @@ subroutine snow2
                   snoww(iveg) = snoww(iveg) - zmelt2
                   exmelt = exmelt - zmelt2 * (cct * (ts - tf) * asnow + snomel)
                   dts  = dtsg + exmelt / cct
+
+    !!! TEMPORAL AVALIATION
+        if(snoww(iveg) .ne. init_snoww(iveg)) then
+             write(555, '(a10,2(i12),8(f17.9,1x))') &
+             'exmelt',nymd,iveg, snoww(iveg),init_snoww(iveg),&
+             ts,dts,fluxx,tsnow,freeze,zmelt
+        endif
+    !!! TEMPORAL AVALIATION
+
                else
                   cool = min(0.0, tf - 0.01 - (ts + dtsg)) * cct * (1.0 - areas)
                   dtsg2 = max(cool, exmelt) / (cct * (1.001 - areas))
@@ -4652,7 +4706,12 @@ subroutine snow2
       dtc = dtc * realg + dts * realc
       dtg = dtg * realc + dts * realg
 
+             write(555, '(a10,2(i12),8(f17.9,1x))') &
+             'end',nymd,iveg, snoww(iveg),init_snoww(iveg),&
+             ts,dts,fluxx,tsnow,freeze,zmelt
+
    end do   ! (iveg=1, 2)
+
 
    fluxef = shf - cg * dtg / dtt
 !c 3/96 changes
