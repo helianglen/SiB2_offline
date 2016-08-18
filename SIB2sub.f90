@@ -2091,21 +2091,16 @@ end subroutine rada2
 !c
 !+ Parameters & vars in modules:
    !-- Woldn't be modificated:>
-   use atmos,  only : coszen!,& ! cosine of solar zenith angle [-]
-                      !sunang & ! cosine of solar zenith angle [-]
-                                ! ...CLM formulation
-!                       ppc,ppl ! precipitation components
+   use atmos,  only : coszen    ! cosine of solar zenith angle [-]
    use const,  only : stefan, & ! Stefan-Boltzman constant []
                       tf        ! freezing temperature     [-]
    use grads,  only : tgs       ! surface soil temperature in fraction cover by snow [K]
    use hydrol, only : areas,  & ! fraction of ground covered by snow [-]
-!                     canex,  & ! fraction of canopy not covered by snow [-]
                       satcap    ! interception capacities [m] (canopy/ground)
    use soilij, only : soref     ! soil reflectance [-] ([visible/nearIR])
    use stepv,  only : tc,     & ! canopy temperature [K]
                       tg,     & ! ground temperature [K]
                       snoww!, & ! snow interception store [m] (canopy/ground)
-                      !www      ! ground wetness
    use vdyijt, only : green,  & ! green leaf fraction [-]
                       zlt       ! Leaf Area Index [m2m-2]
    use vstate, only : chil,   & ! leaf angle distribution factor [-]
@@ -2113,7 +2108,6 @@ end subroutine rada2
                       stem,   & !
                       ref,    & ! leaf reflectance (iband,life and dead)
                       tran      ! leaf transmittance (iw=iband, il=life and dead)
-!   use soils, only  : poros    ! soil porosity
    !++ Will be modificated:>
    use radabs, only : albedo, & ! component reflectances
                       radfac, & ! radiation absorption factors
@@ -2122,7 +2116,6 @@ end subroutine rada2
    use site,   only : salb      ! surface albedos
    use donor,  only : zlwup     ! emitted longwave radiation
    use atmos,  only : radn      ! downward radiation components
-   use steps,  only : nymd,iter
 
    implicit none
    ! Output variables
@@ -2132,7 +2125,6 @@ end subroutine rada2
            ssun(2,2),         & ! sunlit canopy absorption for solar radiation
            ssha(2,2),         & ! shaded canopy absorption for solar radiation,...
                                 ! ...normalized by the incident flux
-!           thermk,            & ! canopy gap fraction for tir radiation
            extkb,             & ! (k, g(mu)/mu) direct solar extinction coefficient
            extkd                ! diffuse and scattered diffuse PAR extinction coefficient
 
@@ -2142,9 +2134,7 @@ end subroutine rada2
            beta0,             & ! upscattering parameter for direct beam [-]
            tranc(2,2),        & ! canopy transmittances for solar radiation
            czen,              & ! cosine of solar zenith angle > 0 [-]
-!           coszen,            & ! cosine of solar zenith angle > 0 [-]
            albsno(2,2),       & ! snow albedo [-]
-!           f,                 & ! cosine of solar zenith angle > 0 [-]**
            facs,              & ! snow melt coeficient
            fmelt,             & ! snow melt coeficient
            refc_s(2,2),       & ! leaf reflectance corrected by snow cover
@@ -2234,17 +2224,6 @@ end subroutine rada2
 !     surface.
 !
    scov = min(0.5, (snoww(1) / satcap(1)) )
-
-    !-------------IMPORTANT----------------!
-    ! Some error in snoww(1) calculation.  !
-    ! so, scov == min(0.5,1.01) == 0.5     !
-    ! when precipitation > 0. That results !
-    ! in unrealistic modifications of      !
-    ! ref(2,2) & tran(2,2)                 !
-    ! temporal SOLUTION scov == 0.0        !
-    !    NOTE: code revisation needed.     !
-                 scov = 0.0                !
-    !--------------------------------------!
 
    do l_d= 1,2; do iwave = 1,2
 
