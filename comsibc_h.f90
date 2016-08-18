@@ -72,6 +72,7 @@ module vstate
    real :: z2
    real :: z1
    real :: vcover
+   real :: stem
    real :: chil
    real :: tran(2,2)
    real :: ref(2,2)
@@ -162,6 +163,7 @@ module atmos
    real :: ppl
    real :: radn(3,2)
    real :: sunang
+   real :: coszen
    real :: swdown
    real :: rnetm
    real :: cloud
@@ -201,6 +203,7 @@ module steps
    integer :: ilw 
    integer :: niter 
    integer :: iter 
+   integer :: nymd
 !   integer :: ispare   ! NOT USED
    real :: dtt
 end module 

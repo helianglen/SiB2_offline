@@ -15,7 +15,7 @@ subroutine sib2data
 
    use morphology1
    use morphology2, only : &
-      z2_v, z1_v, zc_v, vcover_v, chil_v, leafw_v, leafl_v, &
+      z2_v, z1_v, zc_v, vcover_v,stem_v, chil_v, leafw_v, leafl_v, &
       sodep_v, rootd_v,rootex_v
    use morphology3
    use morphology4
@@ -66,6 +66,7 @@ subroutine sib2data
       zc_v, &        ! Inflection height for leaf-area density (m)
       z2_v, &        ! Canopy-top height (m)
       vcover_v, &    ! Canopy cover fraction
+      stem_v,   &    ! Stem Area Index
       chil_v, &      ! Leaf area distribution factor
       leafw_v, &     ! Leaf width (m)
       leafl_v, &     ! Leaf length (m)
