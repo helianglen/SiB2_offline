@@ -3846,9 +3846,6 @@ subroutine sortin(eyy, pco2y, range, gammas, ic)
    pco2y(ic) = max (pco2y(ic), 0.01)
 end subroutine sortin
 
-
-
-
 !c======================================================================
 
 subroutine delrn
