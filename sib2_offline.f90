@@ -213,6 +213,7 @@ program sib2_offline
       extfrac(i) = extfrac(i)/froot_norm
       cumextfrac =  cumextfrac + extfrac(i) 
     END DO
+        depth(nlayers) = depth(nlayers-1)+dzmultilayer
     
     if(kzat_pre .eq. 1)then
 	   OPEN(9890,file='best_ksatz.txt',status='old')
